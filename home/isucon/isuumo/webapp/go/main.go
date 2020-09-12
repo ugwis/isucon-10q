@@ -562,10 +562,16 @@ func searchChairs(c echo.Context) error {
 	}
 
 	searchQuery := "SELECT * FROM chair WHERE "
+	countQuery := "SELECT COUNT(*) FROM chair WHERE "
 	searchCondition := strings.Join(conditions, " AND ")
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
 
 	var res ChairSearchResponse
+	err = db.Get(&res.Count, countQuery+searchCondition, params...)
+	if err != nil {
+		c.Logger().Errorf("searchChairs DB execution error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
 
 	chairs := []Chair{}
 	params = append(params, perPage, page*perPage)
@@ -578,7 +584,6 @@ func searchChairs(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	res.Count = int64(len(chairs))
 	res.Chairs = chairs
 
 	return c.JSON(http.StatusOK, res)
@@ -861,10 +866,18 @@ func searchEstates(c echo.Context) error {
 	}
 
 	searchQuery := "SELECT * FROM estate WHERE "
+	countQuery := "SELECT COUNT(*) FROM estate WHERE "
 	searchCondition := strings.Join(conditions, " AND ")
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
 
+	_, span = tr.Start(ctx, "searchEstates db.Get")
 	var res EstateSearchResponse
+	err = db.Get(&res.Count, countQuery+searchCondition, params...)
+	if err != nil {
+		c.Logger().Errorf("searchEstates DB execution error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	span.End()
 
 	_, span = tr.Start(ctx, "searchEstates db.Select")
 	estates := []Estate{}
@@ -879,7 +892,6 @@ func searchEstates(c echo.Context) error {
 	}
 	span.End()
 
-	res.Count = int64(len(estates))
 	res.Estates = estates
 
 	return c.JSON(http.StatusOK, res)
@@ -972,6 +984,26 @@ func searchEstateNazotte(c echo.Context) error {
 	b := coordinates.getBoundingBox()
 	coordinatesText := coordinates.coordinatesToText()
 	span.End()
+
+	_, span = tr.Start(ctx, "searchEstateNazotte getEstate")
+	estatesInPolygon := []Estate{}
+	query := fmt.Sprintf(`SELECT * FROM estate WHERE latitude <= ? AND latitude >= ? AND longitude <= ? AND longitude >= ? AND ST_Contains(ST_PolygonFromText(%s), POINT(latitude,longitude)) ORDER BY popularity DESC, id ASC`, coordinatesText)
+	err = db.Select(&estatesInPolygon, query, b.BottomRightCorner.Latitude, b.TopLeftCorner.Latitude, b.BottomRightCorner.Longitude, b.TopLeftCorner.Longitude)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			c.Echo().Logger.Errorf("db access is failed on executing validate if estate is in polygon : %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+	}
+	span.End()
+	
+
+	/*
+	// getBoundingBox
+	_, span = tr.Start(ctx, "searchEstateNazotte getBoundingBox")
+	b := coordinates.getBoundingBox()
+	coordinatesText := coordinates.coordinatesToText()
+	span.End()
 	// SELECT
 	_, span = tr.Start(ctx, "searchEstateNazotte SELECT")
 	estatesInBoundingBox := []Estate{}
@@ -1006,6 +1038,8 @@ func searchEstateNazotte(c echo.Context) error {
 		}
 		span.End()
 	}
+	*/
+	
 
 	var re EstateSearchResponse
 	re.Estates = []Estate{}
