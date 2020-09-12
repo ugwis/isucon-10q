@@ -69,9 +69,13 @@ type Chair struct {
 	Description string `db:"description" json:"description"`
 	Thumbnail   string `db:"thumbnail" json:"thumbnail"`
 	Price       int64  `db:"price" json:"price"`
+	PriceID     int64  `db:"price_id" json:"-"`
 	Height      int64  `db:"height" json:"height"`
+	HeightID    int64  `db:"height_id" json:"-"`
 	Width       int64  `db:"width" json:"width"`
+	WidthID     int64  `db:"width_id" json:"-"`
 	Depth       int64  `db:"depth" json:"depth"`
+	DepthID     int64  `db:"depth_id" json:"-"`
 	Color       string `db:"color" json:"color"`
 	Features    string `db:"features" json:"features"`
 	Kind        string `db:"kind" json:"kind"`
@@ -90,18 +94,21 @@ type ChairListResponse struct {
 
 //Estate 物件
 type Estate struct {
-	ID          int64   `db:"id" json:"id"`
-	Thumbnail   string  `db:"thumbnail" json:"thumbnail"`
-	Name        string  `db:"name" json:"name"`
-	Description string  `db:"description" json:"description"`
-	Latitude    float64 `db:"latitude" json:"latitude"`
-	Longitude   float64 `db:"longitude" json:"longitude"`
-	Address     string  `db:"address" json:"address"`
-	Rent        int64   `db:"rent" json:"rent"`
-	DoorHeight  int64   `db:"door_height" json:"doorHeight"`
-	DoorWidth   int64   `db:"door_width" json:"doorWidth"`
-	Features    string  `db:"features" json:"features"`
-	Popularity  int64   `db:"popularity" json:"-"`
+	ID           int64   `db:"id" json:"id"`
+	Thumbnail    string  `db:"thumbnail" json:"thumbnail"`
+	Name         string  `db:"name" json:"name"`
+	Description  string  `db:"description" json:"description"`
+	Latitude     float64 `db:"latitude" json:"latitude"`
+	Longitude    float64 `db:"longitude" json:"longitude"`
+	Address      string  `db:"address" json:"address"`
+	Rent         int64   `db:"rent" json:"rent"`
+	RentID       int64   `db:"rent_id" json:"-"`
+	DoorHeight   int64   `db:"door_height" json:"doorHeight"`
+	DoorHeightID int64   `db:"door_height_id" json:"-"`
+	DoorWidth    int64   `db:"door_width" json:"doorWidth"`
+	DoorWidthID  int64   `db:"door_width_id" json:"-"`
+	Features     string  `db:"features" json:"features"`
+	Popularity   int64   `db:"popularity" json:"-"`
 }
 
 //EstateSearchResponse estate/searchへのレスポンスの形式
@@ -331,6 +338,7 @@ func initialize(c echo.Context) error {
 		filepath.Join(sqlDir, "0_Schema.sql"),
 		filepath.Join(sqlDir, "1_DummyEstateData.sql"),
 		filepath.Join(sqlDir, "2_DummyChairData.sql"),
+		filepath.Join(sqlDir, "3_SetRangeID.sql"),
 	}
 
 	for _, p := range paths {
@@ -458,71 +466,51 @@ func searchChairs(c echo.Context) error {
 	params := make([]interface{}, 0)
 
 	if c.QueryParam("priceRangeId") != "" {
-		chairPrice, err := getRange(chairSearchCondition.Price, c.QueryParam("priceRangeId"))
+		_, err := getRange(chairSearchCondition.Price, c.QueryParam("priceRangeId"))
 		if err != nil {
 			c.Echo().Logger.Infof("priceRangeID invalid, %v : %v", c.QueryParam("priceRangeId"), err)
 			return c.NoContent(http.StatusBadRequest)
 		}
+		priceID, _ := strconv.Atoi(c.QueryParam("priceRangeId"))
 
-		if chairPrice.Min != -1 {
-			conditions = append(conditions, "price >= ?")
-			params = append(params, chairPrice.Min)
-		}
-		if chairPrice.Max != -1 {
-			conditions = append(conditions, "price < ?")
-			params = append(params, chairPrice.Max)
-		}
+		conditions = append(conditions, "price_id = ?")
+		params = append(params, priceID)
 	}
 
 	if c.QueryParam("heightRangeId") != "" {
-		chairHeight, err := getRange(chairSearchCondition.Height, c.QueryParam("heightRangeId"))
+		_, err := getRange(chairSearchCondition.Height, c.QueryParam("heightRangeId"))
 		if err != nil {
 			c.Echo().Logger.Infof("heightRangeIf invalid, %v : %v", c.QueryParam("heightRangeId"), err)
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		if chairHeight.Min != -1 {
-			conditions = append(conditions, "height >= ?")
-			params = append(params, chairHeight.Min)
-		}
-		if chairHeight.Max != -1 {
-			conditions = append(conditions, "height < ?")
-			params = append(params, chairHeight.Max)
-		}
+		heightID, _ := strconv.Atoi(c.QueryParam("heightRangeId"))
+		conditions = append(conditions, "height_id = ?")
+		params = append(params, heightID)
 	}
 
 	if c.QueryParam("widthRangeId") != "" {
-		chairWidth, err := getRange(chairSearchCondition.Width, c.QueryParam("widthRangeId"))
+		_, err := getRange(chairSearchCondition.Width, c.QueryParam("widthRangeId"))
 		if err != nil {
 			c.Echo().Logger.Infof("widthRangeID invalid, %v : %v", c.QueryParam("widthRangeId"), err)
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		if chairWidth.Min != -1 {
-			conditions = append(conditions, "width >= ?")
-			params = append(params, chairWidth.Min)
-		}
-		if chairWidth.Max != -1 {
-			conditions = append(conditions, "width < ?")
-			params = append(params, chairWidth.Max)
-		}
+		widthID, _ := strconv.Atoi(c.QueryParam("widthRangeId"))
+		conditions = append(conditions, "width_id = ?")
+		params = append(params, widthID)
 	}
 
 	if c.QueryParam("depthRangeId") != "" {
-		chairDepth, err := getRange(chairSearchCondition.Depth, c.QueryParam("depthRangeId"))
+		_, err := getRange(chairSearchCondition.Depth, c.QueryParam("depthRangeId"))
 		if err != nil {
 			c.Echo().Logger.Infof("depthRangeId invalid, %v : %v", c.QueryParam("depthRangeId"), err)
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		if chairDepth.Min != -1 {
-			conditions = append(conditions, "depth >= ?")
-			params = append(params, chairDepth.Min)
-		}
-		if chairDepth.Max != -1 {
-			conditions = append(conditions, "depth < ?")
-			params = append(params, chairDepth.Max)
-		}
+		depthID, _ := strconv.Atoi(c.QueryParam("depthRangeId"))
+		conditions = append(conditions, "depth_id = ?")
+		params = append(params, depthID)
 	}
 
 	if c.QueryParam("kind") != "" {
@@ -791,54 +779,62 @@ func searchEstates(c echo.Context) error {
 	params := make([]interface{}, 0)
 
 	if c.QueryParam("doorHeightRangeId") != "" {
-		doorHeight, err := getRange(estateSearchCondition.DoorHeight, c.QueryParam("doorHeightRangeId"))
+		_, err := getRange(estateSearchCondition.DoorHeight, c.QueryParam("doorHeightRangeId"))
 		if err != nil {
 			c.Echo().Logger.Infof("doorHeightRangeID invalid, %v : %v", c.QueryParam("doorHeightRangeId"), err)
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		if doorHeight.Min != -1 {
-			conditions = append(conditions, "door_height >= ?")
-			params = append(params, doorHeight.Min)
-		}
-		if doorHeight.Max != -1 {
-			conditions = append(conditions, "door_height < ?")
-			params = append(params, doorHeight.Max)
-		}
+		heightID, _ := strconv.Atoi(c.QueryParam("doorHeightRangeId"))
+		conditions = append(conditions, "door_height_id = ?")
+		params = append(params, heightID)
+		// if doorHeight.Min != -1 {
+		// 	conditions = append(conditions, "door_height >= ?")
+		// 	params = append(params, doorHeight.Min)
+		// }
+		// if doorHeight.Max != -1 {
+		// 	conditions = append(conditions, "door_height < ?")
+		// 	params = append(params, doorHeight.Max)
+		// }
 	}
 
 	if c.QueryParam("doorWidthRangeId") != "" {
-		doorWidth, err := getRange(estateSearchCondition.DoorWidth, c.QueryParam("doorWidthRangeId"))
+		_, err := getRange(estateSearchCondition.DoorWidth, c.QueryParam("doorWidthRangeId"))
 		if err != nil {
 			c.Echo().Logger.Infof("doorWidthRangeID invalid, %v : %v", c.QueryParam("doorWidthRangeId"), err)
 			return c.NoContent(http.StatusBadRequest)
 		}
 
-		if doorWidth.Min != -1 {
-			conditions = append(conditions, "door_width >= ?")
-			params = append(params, doorWidth.Min)
-		}
-		if doorWidth.Max != -1 {
-			conditions = append(conditions, "door_width < ?")
-			params = append(params, doorWidth.Max)
-		}
+		widthID, _ := strconv.Atoi(c.QueryParam("doorHeightRangeId"))
+		conditions = append(conditions, "door_width_id = ?")
+		params = append(params, widthID)
+		// if doorWidth.Min != -1 {
+		// 	conditions = append(conditions, "door_width >= ?")
+		// 	params = append(params, doorWidth.Min)
+		// }
+		// if doorWidth.Max != -1 {
+		// 	conditions = append(conditions, "door_width < ?")
+		// 	params = append(params, doorWidth.Max)
+		// }
 	}
 
 	if c.QueryParam("rentRangeId") != "" {
-		estateRent, err := getRange(estateSearchCondition.Rent, c.QueryParam("rentRangeId"))
+		_, err := getRange(estateSearchCondition.Rent, c.QueryParam("rentRangeId"))
 		if err != nil {
 			c.Echo().Logger.Infof("rentRangeID invalid, %v : %v", c.QueryParam("rentRangeId"), err)
 			return c.NoContent(http.StatusBadRequest)
 		}
-
-		if estateRent.Min != -1 {
-			conditions = append(conditions, "rent >= ?")
-			params = append(params, estateRent.Min)
-		}
-		if estateRent.Max != -1 {
-			conditions = append(conditions, "rent < ?")
-			params = append(params, estateRent.Max)
-		}
+		rentID, _ := strconv.Atoi(c.QueryParam("rentRangeId"))
+		conditions = append(conditions, "rent_id = ?")
+		params = append(params, rentID)
+		// if estateRent.Min != -1 {
+		// 	conditions = append(conditions, "rent >= ?")
+		// 	params = append(params, estateRent.Min)
+		// }
+		// if estateRent.Max != -1 {
+		// 	conditions = append(conditions, "rent < ?")
+		// 	params = append(params, estateRent.Max)
+		// }
 	}
 
 	if c.QueryParam("features") != "" {
@@ -996,50 +992,48 @@ func searchEstateNazotte(c echo.Context) error {
 		}
 	}
 	span.End()
-	
 
 	/*
-	// getBoundingBox
-	_, span = tr.Start(ctx, "searchEstateNazotte getBoundingBox")
-	b := coordinates.getBoundingBox()
-	coordinatesText := coordinates.coordinatesToText()
-	span.End()
-	// SELECT
-	_, span = tr.Start(ctx, "searchEstateNazotte SELECT")
-	estatesInBoundingBox := []Estate{}
-	query := `SELECT * FROM estate WHERE latitude <= ? AND latitude >= ? AND longitude <= ? AND longitude >= ? ORDER BY popularity DESC, id ASC`
-	err = db.Select(&estatesInBoundingBox, query, b.BottomRightCorner.Latitude, b.TopLeftCorner.Latitude, b.BottomRightCorner.Longitude, b.TopLeftCorner.Longitude)
-	if err == sql.ErrNoRows {
-		c.Echo().Logger.Infof("select * from estate where latitude ...", err)
-		return c.JSON(http.StatusOK, EstateSearchResponse{Count: 0, Estates: []Estate{}})
-	} else if err != nil {
-		c.Echo().Logger.Errorf("database execution error : %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	span.End()
-
-	estatesInPolygon := []Estate{}
-	for _, estate := range estatesInBoundingBox {
-		_, span = tr.Start(ctx, "searchEstateNazotte estateloop")
-		validatedEstate := Estate{}
-
-		point := fmt.Sprintf("'POINT(%f %f)'", estate.Latitude, estate.Longitude)
-		query := fmt.Sprintf(`SELECT * FROM estate WHERE id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText(%s))`, coordinatesText, point)
-		err = db.Get(&validatedEstate, query, estate.ID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				continue
-			} else {
-				c.Echo().Logger.Errorf("db access is failed on executing validate if estate is in polygon : %v", err)
-				return c.NoContent(http.StatusInternalServerError)
-			}
-		} else {
-			estatesInPolygon = append(estatesInPolygon, validatedEstate)
+		// getBoundingBox
+		_, span = tr.Start(ctx, "searchEstateNazotte getBoundingBox")
+		b := coordinates.getBoundingBox()
+		coordinatesText := coordinates.coordinatesToText()
+		span.End()
+		// SELECT
+		_, span = tr.Start(ctx, "searchEstateNazotte SELECT")
+		estatesInBoundingBox := []Estate{}
+		query := `SELECT * FROM estate WHERE latitude <= ? AND latitude >= ? AND longitude <= ? AND longitude >= ? ORDER BY popularity DESC, id ASC`
+		err = db.Select(&estatesInBoundingBox, query, b.BottomRightCorner.Latitude, b.TopLeftCorner.Latitude, b.BottomRightCorner.Longitude, b.TopLeftCorner.Longitude)
+		if err == sql.ErrNoRows {
+			c.Echo().Logger.Infof("select * from estate where latitude ...", err)
+			return c.JSON(http.StatusOK, EstateSearchResponse{Count: 0, Estates: []Estate{}})
+		} else if err != nil {
+			c.Echo().Logger.Errorf("database execution error : %v", err)
+			return c.NoContent(http.StatusInternalServerError)
 		}
 		span.End()
-	}
+
+		estatesInPolygon := []Estate{}
+		for _, estate := range estatesInBoundingBox {
+			_, span = tr.Start(ctx, "searchEstateNazotte estateloop")
+			validatedEstate := Estate{}
+
+			point := fmt.Sprintf("'POINT(%f %f)'", estate.Latitude, estate.Longitude)
+			query := fmt.Sprintf(`SELECT * FROM estate WHERE id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText(%s))`, coordinatesText, point)
+			err = db.Get(&validatedEstate, query, estate.ID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					continue
+				} else {
+					c.Echo().Logger.Errorf("db access is failed on executing validate if estate is in polygon : %v", err)
+					return c.NoContent(http.StatusInternalServerError)
+				}
+			} else {
+				estatesInPolygon = append(estatesInPolygon, validatedEstate)
+			}
+			span.End()
+		}
 	*/
-	
 
 	var re EstateSearchResponse
 	re.Estates = []Estate{}
