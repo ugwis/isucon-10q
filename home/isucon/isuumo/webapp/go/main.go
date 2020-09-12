@@ -870,7 +870,7 @@ func searchEstates(c echo.Context) error {
 	searchCondition := strings.Join(conditions, " AND ")
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
 
-	_, span := tr.Start(ctx, "searchEstates db.Get")
+	_, span = tr.Start(ctx, "searchEstates db.Get")
 	var res EstateSearchResponse
 	err = db.Get(&res.Count, countQuery+searchCondition, params...)
 	if err != nil {
@@ -879,7 +879,7 @@ func searchEstates(c echo.Context) error {
 	}
 	span.End()
 
-	_, span := tr.Start(ctx, "searchEstates db.Select")
+	_, span = tr.Start(ctx, "searchEstates db.Select")
 	estates := []Estate{}
 	params = append(params, perPage, page*perPage)
 	err = db.Select(&estates, searchQuery+searchCondition+limitOffset, params...)
@@ -979,7 +979,12 @@ func searchEstateNazotte(c echo.Context) error {
 		return c.NoContent(http.StatusBadRequest)
 	}
 
+	// getBoundingBox
+	_, span = tr.Start(ctx, "searchEstateNazotte getBoundingBox")
 	b := coordinates.getBoundingBox()
+	span.End()
+	// SELECT
+	_, span = tr.Start(ctx, "searchEstateNazotte SELECT")
 	estatesInBoundingBox := []Estate{}
 	query := `SELECT * FROM estate WHERE latitude <= ? AND latitude >= ? AND longitude <= ? AND longitude >= ? ORDER BY popularity DESC, id ASC`
 	err = db.Select(&estatesInBoundingBox, query, b.BottomRightCorner.Latitude, b.TopLeftCorner.Latitude, b.BottomRightCorner.Longitude, b.TopLeftCorner.Longitude)
@@ -990,9 +995,11 @@ func searchEstateNazotte(c echo.Context) error {
 		c.Echo().Logger.Errorf("database execution error : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	span.End()
 
 	estatesInPolygon := []Estate{}
 	for _, estate := range estatesInBoundingBox {
+		_, span = tr.Start(ctx, "searchEstateNazotte estateloop")
 		validatedEstate := Estate{}
 
 		point := fmt.Sprintf("'POINT(%f %f)'", estate.Latitude, estate.Longitude)
@@ -1008,6 +1015,7 @@ func searchEstateNazotte(c echo.Context) error {
 		} else {
 			estatesInPolygon = append(estatesInPolygon, validatedEstate)
 		}
+		span.End()
 	}
 
 	var re EstateSearchResponse
