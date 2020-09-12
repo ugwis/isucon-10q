@@ -36,3 +36,20 @@ CREATE TABLE isuumo.chair
     popularity  INTEGER         NOT NULL,
     stock       INTEGER         NOT NULL
 );
+
+
+use isuumo;
+ALTER TABLE estate ADD INDEX estate_latitude(latitude);
+ALTER TABLE estate ADD INDEX estate_longitude(longitude);
+ALTER TABLE estate ADD INDEX estate_door_height(door_height);
+ALTER TABLE estate ADD INDEX estate_door_width(door_width);
+ALTER TABLE estate ADD INDEX estate_rent(rent);
+ALTER TABLE estate ADD INDEX estate_popularity(popularity);
+
+ALTER TABLE chair ADD INDEX chair_price(price);
+ALTER TABLE chair ADD INDEX chair_height(height);
+ALTER TABLE chair ADD INDEX chair_width(width);
+ALTER TABLE chair ADD INDEX chair_depth(depth);
+ALTER TABLE chair ADD INDEX chair_kind(kind);
+ALTER TABLE chair ADD INDEX chair_color(color);
+ALTER TABLE chair ADD INDEX chair_stock(stock);
