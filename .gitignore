@@ -1,5 +1,6 @@
 *
 */
+
 !.gitignore
-!/etc/*
-!/home/isucon/isuumo/*
+!/etc/**
+!/home/isucon/isuumo/**
