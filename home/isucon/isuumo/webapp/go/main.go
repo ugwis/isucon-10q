@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
@@ -18,7 +19,37 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"github.com/labstack/gommon/log"
+
+	//opentelemetry
+	"go.opentelemetry.io/otel/api/global"
+	"go.opentelemetry.io/otel/label"
+
+	"go.opentelemetry.io/otel/exporters/trace/jaeger"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
+
+// initTracer creates a new trace provider instance and registers it as global trace provider.
+func initTracer() func() {
+	// Create and install Jaeger export pipeline
+	flush, err := jaeger.InstallNewPipeline(
+		jaeger.WithCollectorEndpoint("https://jaeger-c.kkc.x.k06.in/api/traces"),
+		jaeger.WithProcess(jaeger.Process{
+			ServiceName: "isucon10q",
+			Tags: []label.KeyValue{
+				label.String("exporter", "jaeger"),
+				label.Float64("float", 312.23),
+			},
+		}),
+		jaeger.WithSDK(&sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return func() {
+		flush()
+	}
+}
 
 const Limit = 20
 const NazotteLimit = 50
@@ -239,6 +270,10 @@ func init() {
 }
 
 func main() {
+	// Init Tracer
+	fn := initTracer()
+	defer fn()
+
 	// Echo instance
 	e := echo.New()
 	e.Debug = true
@@ -285,6 +320,12 @@ func main() {
 }
 
 func initialize(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "initialize")
+	defer span.End()
+	
 	sqlDir := filepath.Join("..", "mysql", "db")
 	paths := []string{
 		filepath.Join(sqlDir, "0_Schema.sql"),
@@ -314,6 +355,12 @@ func initialize(c echo.Context) error {
 }
 
 func getChairDetail(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "getChairDetail")
+	defer span.End()
+	
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.Echo().Logger.Errorf("Request parameter \"id\" parse error : %v", err)
@@ -339,6 +386,12 @@ func getChairDetail(c echo.Context) error {
 }
 
 func postChair(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "postChair")
+	defer span.End()
+	
 	header, err := c.FormFile("chairs")
 	if err != nil {
 		c.Logger().Errorf("failed to get form file: %v", err)
@@ -395,6 +448,12 @@ func postChair(c echo.Context) error {
 }
 
 func searchChairs(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "searchChairs")
+	defer span.End()
+	
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
 
@@ -531,6 +590,12 @@ func searchChairs(c echo.Context) error {
 }
 
 func buyChair(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "buyChair")
+	defer span.End()
+	
 	m := echo.Map{}
 	if err := c.Bind(&m); err != nil {
 		c.Echo().Logger.Infof("post buy chair failed : %v", err)
@@ -583,10 +648,22 @@ func buyChair(c echo.Context) error {
 }
 
 func getChairSearchCondition(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "getChairSearchCondition")
+	defer span.End()
+	
 	return c.JSON(http.StatusOK, chairSearchCondition)
 }
 
 func getLowPricedChair(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "getLowPricedChair")
+	defer span.End()
+	
 	var chairs []Chair
 	query := `SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?`
 	err := db.Select(&chairs, query, Limit)
@@ -603,6 +680,12 @@ func getLowPricedChair(c echo.Context) error {
 }
 
 func getEstateDetail(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "getEstateDetail")
+	defer span.End()
+	
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.Echo().Logger.Infof("Request parameter \"id\" parse error : %v", err)
@@ -637,6 +720,12 @@ func getRange(cond RangeCondition, rangeID string) (*Range, error) {
 }
 
 func postEstate(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "postEstate")
+	defer span.End()
+	
 	header, err := c.FormFile("estates")
 	if err != nil {
 		c.Logger().Errorf("failed to get form file: %v", err)
@@ -692,6 +781,12 @@ func postEstate(c echo.Context) error {
 }
 
 func searchEstates(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "searchEstates")
+	defer span.End()
+	
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
 
@@ -775,13 +870,16 @@ func searchEstates(c echo.Context) error {
 	searchCondition := strings.Join(conditions, " AND ")
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
 
+	_, span := tr.Start(ctx, "searchEstates db.Get")
 	var res EstateSearchResponse
 	err = db.Get(&res.Count, countQuery+searchCondition, params...)
 	if err != nil {
 		c.Logger().Errorf("searchEstates DB execution error : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	span.End()
 
+	_, span := tr.Start(ctx, "searchEstates db.Select")
 	estates := []Estate{}
 	params = append(params, perPage, page*perPage)
 	err = db.Select(&estates, searchQuery+searchCondition+limitOffset, params...)
@@ -792,6 +890,7 @@ func searchEstates(c echo.Context) error {
 		c.Logger().Errorf("searchEstates DB execution error : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	span.End()
 
 	res.Estates = estates
 
@@ -799,6 +898,12 @@ func searchEstates(c echo.Context) error {
 }
 
 func getLowPricedEstate(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "getLowPricedEstate")
+	defer span.End()
+	
 	estates := make([]Estate, 0, Limit)
 	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
 	err := db.Select(&estates, query, Limit)
@@ -815,6 +920,12 @@ func getLowPricedEstate(c echo.Context) error {
 }
 
 func searchRecommendedEstateWithChair(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "searchRecommendedEstateWithChair")
+	defer span.End()
+	
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.Logger().Infof("Invalid format searchRecommendedEstateWithChair id : %v", err)
@@ -851,6 +962,12 @@ func searchRecommendedEstateWithChair(c echo.Context) error {
 }
 
 func searchEstateNazotte(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "searchEstateNazotte")
+	defer span.End()
+	
 	coordinates := Coordinates{}
 	err := c.Bind(&coordinates)
 	if err != nil {
@@ -906,6 +1023,12 @@ func searchEstateNazotte(c echo.Context) error {
 }
 
 func postEstateRequestDocument(c echo.Context) error {
+	// Handler Span
+	tr := global.Tracer("isuumo-handler")
+	ctx := context.Background()
+	ctx, span := tr.Start(ctx, "postEstateRequestDocument")
+	defer span.End()
+	
 	m := echo.Map{}
 	if err := c.Bind(&m); err != nil {
 		c.Echo().Logger.Infof("post request document failed : %v", err)
