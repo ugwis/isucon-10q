@@ -325,7 +325,7 @@ func initialize(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "initialize")
 	defer span.End()
-	
+
 	sqlDir := filepath.Join("..", "mysql", "db")
 	paths := []string{
 		filepath.Join(sqlDir, "0_Schema.sql"),
@@ -360,7 +360,7 @@ func getChairDetail(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "getChairDetail")
 	defer span.End()
-	
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.Echo().Logger.Errorf("Request parameter \"id\" parse error : %v", err)
@@ -391,7 +391,7 @@ func postChair(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "postChair")
 	defer span.End()
-	
+
 	header, err := c.FormFile("chairs")
 	if err != nil {
 		c.Logger().Errorf("failed to get form file: %v", err)
@@ -453,7 +453,7 @@ func searchChairs(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "searchChairs")
 	defer span.End()
-	
+
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
 
@@ -562,16 +562,10 @@ func searchChairs(c echo.Context) error {
 	}
 
 	searchQuery := "SELECT * FROM chair WHERE "
-	countQuery := "SELECT COUNT(*) FROM chair WHERE "
 	searchCondition := strings.Join(conditions, " AND ")
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
 
 	var res ChairSearchResponse
-	err = db.Get(&res.Count, countQuery+searchCondition, params...)
-	if err != nil {
-		c.Logger().Errorf("searchChairs DB execution error : %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
 
 	chairs := []Chair{}
 	params = append(params, perPage, page*perPage)
@@ -584,6 +578,7 @@ func searchChairs(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	res.Count = int64(len(chairs))
 	res.Chairs = chairs
 
 	return c.JSON(http.StatusOK, res)
@@ -595,7 +590,7 @@ func buyChair(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "buyChair")
 	defer span.End()
-	
+
 	m := echo.Map{}
 	if err := c.Bind(&m); err != nil {
 		c.Echo().Logger.Infof("post buy chair failed : %v", err)
@@ -653,7 +648,7 @@ func getChairSearchCondition(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "getChairSearchCondition")
 	defer span.End()
-	
+
 	return c.JSON(http.StatusOK, chairSearchCondition)
 }
 
@@ -663,7 +658,7 @@ func getLowPricedChair(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "getLowPricedChair")
 	defer span.End()
-	
+
 	var chairs []Chair
 	query := `SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?`
 	err := db.Select(&chairs, query, Limit)
@@ -685,7 +680,7 @@ func getEstateDetail(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "getEstateDetail")
 	defer span.End()
-	
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.Echo().Logger.Infof("Request parameter \"id\" parse error : %v", err)
@@ -725,7 +720,7 @@ func postEstate(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "postEstate")
 	defer span.End()
-	
+
 	header, err := c.FormFile("estates")
 	if err != nil {
 		c.Logger().Errorf("failed to get form file: %v", err)
@@ -786,7 +781,7 @@ func searchEstates(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "searchEstates")
 	defer span.End()
-	
+
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
 
@@ -866,18 +861,10 @@ func searchEstates(c echo.Context) error {
 	}
 
 	searchQuery := "SELECT * FROM estate WHERE "
-	countQuery := "SELECT COUNT(*) FROM estate WHERE "
 	searchCondition := strings.Join(conditions, " AND ")
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
 
-	_, span = tr.Start(ctx, "searchEstates db.Get")
 	var res EstateSearchResponse
-	err = db.Get(&res.Count, countQuery+searchCondition, params...)
-	if err != nil {
-		c.Logger().Errorf("searchEstates DB execution error : %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	span.End()
 
 	_, span = tr.Start(ctx, "searchEstates db.Select")
 	estates := []Estate{}
@@ -892,6 +879,7 @@ func searchEstates(c echo.Context) error {
 	}
 	span.End()
 
+	res.Count = int64(len(estates))
 	res.Estates = estates
 
 	return c.JSON(http.StatusOK, res)
@@ -903,7 +891,7 @@ func getLowPricedEstate(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "getLowPricedEstate")
 	defer span.End()
-	
+
 	estates := make([]Estate, 0, Limit)
 	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
 	err := db.Select(&estates, query, Limit)
@@ -925,7 +913,7 @@ func searchRecommendedEstateWithChair(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "searchRecommendedEstateWithChair")
 	defer span.End()
-	
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.Logger().Infof("Invalid format searchRecommendedEstateWithChair id : %v", err)
@@ -967,7 +955,7 @@ func searchEstateNazotte(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "searchEstateNazotte")
 	defer span.End()
-	
+
 	coordinates := Coordinates{}
 	err := c.Bind(&coordinates)
 	if err != nil {
@@ -982,6 +970,7 @@ func searchEstateNazotte(c echo.Context) error {
 	// getBoundingBox
 	_, span = tr.Start(ctx, "searchEstateNazotte getBoundingBox")
 	b := coordinates.getBoundingBox()
+	coordinatesText := coordinates.coordinatesToText()
 	span.End()
 	// SELECT
 	_, span = tr.Start(ctx, "searchEstateNazotte SELECT")
@@ -1003,7 +992,7 @@ func searchEstateNazotte(c echo.Context) error {
 		validatedEstate := Estate{}
 
 		point := fmt.Sprintf("'POINT(%f %f)'", estate.Latitude, estate.Longitude)
-		query := fmt.Sprintf(`SELECT * FROM estate WHERE id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText(%s))`, coordinates.coordinatesToText(), point)
+		query := fmt.Sprintf(`SELECT * FROM estate WHERE id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText(%s))`, coordinatesText, point)
 		err = db.Get(&validatedEstate, query, estate.ID)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -1036,7 +1025,7 @@ func postEstateRequestDocument(c echo.Context) error {
 	ctx := context.Background()
 	ctx, span := tr.Start(ctx, "postEstateRequestDocument")
 	defer span.End()
-	
+
 	m := echo.Map{}
 	if err := c.Bind(&m); err != nil {
 		c.Echo().Logger.Infof("post request document failed : %v", err)
